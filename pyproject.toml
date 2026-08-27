@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nailer"
+version = "0.1.0"
+description = "Read-only fantasy football decision-support CLI for ESPN and Yahoo leagues"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "pyyaml>=6",
+    "python-dotenv>=1",
+    "espn-api>=0.40",
+    "yfpy>=16",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+nailer = "nailer.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["nailer*"]

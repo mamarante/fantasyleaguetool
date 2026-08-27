@@ -1,0 +1,46 @@
+# Copy this file to config.yaml and fill in your own values. Never commit config.yaml
+# (it's in .gitignore already since it contains league/team identifiers).
+
+leagues:
+  espn:
+    enabled: true
+    name: "Grossi's ESPN 12 Man League"
+    league_id: 000000          # from the league URL: .../leagueId=000000
+    year: 2026
+    team_id: 10                # your draft slot / team id in the league
+    scoring: ppr               # ESPN league is PPR per project brief
+
+  yahoo:
+    enabled: true
+    name: "My 10-man league"
+    league_id: "000000"        # numeric league id, e.g. from https://football.fantasysports.yahoo.com/f1/000000
+    game_key: "nfl"            # yfpy resolves the current season's game key from this
+    team_id: 6                 # your draft slot / team id in the league
+    scoring: ppr                # TODO: confirm actual Yahoo scoring settings (full PPR / half-PPR / standard)
+                                 # `nailer roster --league yahoo` prints the scoring type read from the API
+
+# Players you want priority alerts on when they show up as free agents (handcuffs, stash targets, etc).
+# `league` is optional; omit it to watch the player across both leagues.
+watchlist:
+  - name: "Jordan Mason"
+    league: espn
+    reason: "Handcuff for Aaron Jones"
+  - name: "Miami RB2"
+    league: espn
+    reason: "Behind De'Von Achane"
+
+# How many weeks ahead the bye-week radar looks.
+bye_radar:
+  lookahead_weeks: 2
+
+# Point gap (projected) at or under which a flex decision is flagged as a "close call".
+startsit:
+  close_call_margin: 2.5
+
+cache:
+  enabled: true
+  dir: ".cache"
+  ttl_hours: 24
+
+report:
+  output_dir: "reports"
