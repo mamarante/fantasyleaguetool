@@ -20,7 +20,7 @@ class InjuryStatus(str, Enum):
     UNKNOWN = "UNKNOWN"
 
     @classmethod
-    def from_raw(cls, raw: str | None) -> "InjuryStatus":
+    def from_raw(cls, raw: str | None) -> InjuryStatus:
         if not raw:
             return cls.HEALTHY
         raw = raw.upper().strip()
@@ -57,6 +57,7 @@ class Player:
     is_starter: bool = False
     slot: str | None = None  # current lineup slot, if rostered by a team
     percent_owned: float | None = None
+    season_avg_projected: float | None = None  # season-to-date avg projected points; None if not available
 
     def eligible_for(self, slot_positions: set[str]) -> bool:
         return self.position in slot_positions

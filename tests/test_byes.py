@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from nailer.config import NailerConfig
 from nailer.reports.byes import build_bye_radar
-from tests.conftest import FakeAdapter, STANDARD_SLOTS, make_player
+from tests.conftest import STANDARD_SLOTS, FakeAdapter, make_player
 
 
 def _config(lookahead=2) -> NailerConfig:

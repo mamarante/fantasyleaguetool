@@ -56,3 +56,10 @@ class LeagueAdapter(ABC):
     @abstractmethod
     def get_byes(self) -> dict[str, int]:
         """Map of player_id -> bye week, for every player on my roster."""
+
+    @abstractmethod
+    def get_all_team_rosters(self, week: int | None = None) -> list[Roster]:
+        """Every team's roster in the league for the given week (default:
+        current), mine included. Used for league-wide comparisons like the
+        rest-of-season strength view.
+        """

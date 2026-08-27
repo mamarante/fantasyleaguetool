@@ -10,7 +10,14 @@ from nailer.cache import Cache
 from nailer.config import EspnConfig
 from nailer.lineup import SLOT_DISPLAY_ORDER
 from nailer.models import InjuryStatus, Matchup, Player, Roster
-from nailer.serde import matchup_from_dict, matchup_to_dict, player_from_dict, player_to_dict
+from nailer.serde import (
+    matchup_from_dict,
+    matchup_to_dict,
+    player_from_dict,
+    player_to_dict,
+    roster_from_dict,
+    roster_to_dict,
+)
 
 UPGRADE_HINT = (
     "ESPN's API changes shape without notice sometimes. "
@@ -156,6 +163,7 @@ class EspnAdapter(LeagueAdapter):
             is_starter=getattr(bp, "slot_position", "BE") not in _BENCH_SLOTS,
             slot=getattr(bp, "slot_position", None),
             percent_owned=getattr(bp, "percent_owned", None),
+            season_avg_projected=round(float(getattr(bp, "projected_avg_points", 0) or 0), 2),
         )
 
     def _box_score_for(self, week: int, team_id: int):
@@ -255,3 +263,30 @@ class EspnAdapter(LeagueAdapter):
             if bye is not None:
                 byes[str(p.playerId)] = bye
         return byes
+
+    def _fetch_all_team_rosters_uncached(self, week: int) -> list[Roster]:
+        try:
+            box_scores = self.league.box_scores(week=week)
+        except Exception as e:
+            raise LeagueAdapterError(f"Couldn't fetch box scores for week {week}: {e}\n{UPGRADE_HINT}") from e
+
+        rosters: list[Roster] = []
+        for bs in box_scores:
+            if bs.home_team and bs.home_lineup:
+                rosters.append(self._roster_from_lineup(bs.home_team, bs.home_lineup, week))
+            if bs.away_team and bs.away_lineup:
+                rosters.append(self._roster_from_lineup(bs.away_team, bs.away_lineup, week))
+        return rosters
+
+    def get_all_team_rosters(self, week: int | None = None) -> list[Roster]:
+        week = week or self.current_week()
+        if self.cache:
+            params = {"week": week}
+            d = self.cache.get_or_fetch(
+                self.league_name,
+                "all_rosters",
+                params,
+                lambda: [roster_to_dict(r) for r in self._fetch_all_team_rosters_uncached(week)],
+            )
+            return [roster_from_dict(r) for r in d]
+        return self._fetch_all_team_rosters_uncached(week)

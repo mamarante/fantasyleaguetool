@@ -3,7 +3,7 @@ from __future__ import annotations
 from nailer.config import NailerConfig
 from nailer.models import WatchlistEntry
 from nailer.reports.waivers import build_waiver_report
-from tests.conftest import FakeAdapter, STANDARD_SLOTS, make_player
+from tests.conftest import STANDARD_SLOTS, FakeAdapter, make_player
 
 
 def _config(watchlist=None) -> NailerConfig:

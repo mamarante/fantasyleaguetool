@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from nailer.config import NailerConfig
 from nailer.reports.matchup import build_matchup_preview
-from tests.conftest import FakeAdapter, STANDARD_SLOTS, make_player
+from tests.conftest import STANDARD_SLOTS, FakeAdapter, make_player
 
 
 def _config() -> NailerConfig:

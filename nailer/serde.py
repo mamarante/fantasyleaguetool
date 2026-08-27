@@ -22,6 +22,7 @@ def player_to_dict(p: Player) -> dict:
         "is_starter": p.is_starter,
         "slot": p.slot,
         "percent_owned": p.percent_owned,
+        "season_avg_projected": p.season_avg_projected,
     }
 
 

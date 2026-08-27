@@ -37,6 +37,14 @@ bye_radar:
 startsit:
   close_call_margin: 2.5
 
+# Sleeper detection (ESPN only): a player is "trending" when this week's
+# projection is at least this far above their own season-average projection.
+# min_season_avg filters out noise from very low-usage players (e.g. a
+# kicker going from 2 to 3 projected points is a 50% jump but meaningless).
+sleepers:
+  min_pct_above_avg: 0.25
+  min_season_avg: 3.0
+
 cache:
   enabled: true
   dir: ".cache"

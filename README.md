@@ -69,7 +69,9 @@ nailer startsit             # recommended lineup + close flex calls
 nailer waivers               # free agents that beat your worst bench player
 nailer byes                  # upcoming bye weeks with no bench coverage
 nailer matchup                # my projected total vs. this week's opponent
-nailer report                 # everything, as one markdown file
+nailer strength                # my projected total vs. league average + rank
+nailer sleepers                 # bench/waiver players trending above their season avg
+nailer report                    # everything, as one markdown file
 
 # any command:
 nailer <cmd> --league espn    # just one league (default: both)
@@ -79,6 +81,27 @@ nailer <cmd> --week 7         # override the week (default: current)
 `nailer report` writes to `reports/nailer-report-<date>.md` (configurable
 via `report.output_dir` in config.yaml) and also prints to stdout so you
 can paste it straight into a chat.
+
+## Running it automatically
+
+Fantasy data (projections, injury tags) changes on a daily cadence, not a
+per-second one, and API responses are already cached for `cache.ttl_hours`
+(24h by default) — so running `nailer report` every time you open a
+terminal is wasted work, not "fresher" data. A daily scheduled run is the
+right cadence:
+
+```bash
+crontab -e
+# add a line like (7am daily; adjust the path to where you cloned this repo):
+0 7 * * * /path/to/fantasyleaguetool/scripts/run_report.sh
+```
+
+`scripts/run_report.sh` activates the venv, runs `nailer report`, and logs
+to `logs/`. Each morning during the season you'll have a fresh
+`reports/nailer-report-<date>.md` waiting, without doing anything. On
+macOS, cron works the same way, though if it can't read files due to
+sandboxing you may need to grant your terminal/cron Full Disk Access in
+System Settings, or use `launchd` instead.
 
 ## How it works
 
@@ -96,6 +119,18 @@ can paste it straight into a chat.
 - Every league failure (bad cookies, expired tokens, an API shape
   change) is caught and reported per-league with a hint, rather than
   crashing the whole report.
+- `nailer strength` computes every team's optimal-lineup projected total
+  for the current week (not whatever their manager happened to set) and
+  ranks mine against the league average — a current-week snapshot, since
+  true multi-week-ahead projections aren't reliably available from either
+  API.
+- `nailer sleepers` (ESPN only) flags bench/free-agent players whose
+  projection this week is notably above their own season-average
+  projection (`sleepers.min_pct_above_avg` / `min_season_avg` in
+  config.yaml). This is a pure data/math signal, not a judgment call:
+  ESPN's weekly projection is already matchup-aware, so comparing it to
+  the player's own baseline is the whole signal — no separate
+  opponent-strength modeling happens here.
 
 ## Known limitations
 
@@ -121,7 +156,11 @@ can paste it straight into a chat.
 ## Development
 
 ```bash
-pip install -r requirements.txt   # includes pytest
+pip install -r requirements.txt   # includes pytest, ruff, mypy
 pytest                            # unit tests use an in-memory fake
                                    # adapter — no live credentials needed
+ruff check nailer tests           # lint
+mypy nailer                       # type check — catches adapter/report
+                                   # wiring bugs before they hit a live API
 ```
+

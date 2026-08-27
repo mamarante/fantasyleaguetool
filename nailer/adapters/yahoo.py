@@ -255,3 +255,22 @@ class YahooAdapter(LeagueAdapter):
     def get_byes(self) -> dict[str, int]:
         roster = self.get_roster()
         return {p.player_id: p.bye_week for p in roster.players if p.bye_week is not None}
+
+    def get_all_team_rosters(self, week: int | None = None) -> list[Roster]:
+        week = week or self.current_week()
+        try:
+            teams = self.query.get_league_teams()
+        except Exception as e:
+            raise LeagueAdapterError(f"Couldn't fetch Yahoo league teams: {e}\n{UPGRADE_HINT}") from e
+
+        rosters: list[Roster] = []
+        for t in teams:
+            team_id = int(t.team_id)
+            name = t.name.decode("utf-8") if isinstance(t.name, bytes) else str(t.name)
+            try:
+                players_raw = self.query.get_team_roster_player_stats_by_week(team_id, week)
+            except Exception as e:
+                raise LeagueAdapterError(f"Couldn't fetch Yahoo roster for team {team_id}, week {week}: {e}\n{UPGRADE_HINT}") from e
+            players = [self._yahoo_player_to_player(p, week) for p in players_raw]
+            rosters.append(Roster(league=self.league_name, team_id=str(team_id), team_name=name, week=week, players=players))
+        return rosters

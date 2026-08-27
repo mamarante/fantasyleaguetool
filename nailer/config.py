@@ -57,6 +57,8 @@ class NailerConfig:
     cache_dir: Path = Path(".cache")
     cache_ttl_hours: int = 24
     report_output_dir: Path = Path("reports")
+    sleeper_min_pct_above_avg: float = 0.25
+    sleeper_min_season_avg: float = 3.0
 
     def enabled_leagues(self) -> list[str]:
         leagues = []
@@ -141,6 +143,7 @@ def load_config(config_path: Path | str = DEFAULT_CONFIG_PATH, env_path: Path | 
     startsit = raw.get("startsit", {}) or {}
     cache = raw.get("cache", {}) or {}
     report = raw.get("report", {}) or {}
+    sleepers = raw.get("sleepers", {}) or {}
 
     return NailerConfig(
         espn=espn_cfg,
@@ -152,4 +155,6 @@ def load_config(config_path: Path | str = DEFAULT_CONFIG_PATH, env_path: Path | 
         cache_dir=Path(cache.get("dir", ".cache")),
         cache_ttl_hours=int(cache.get("ttl_hours", 24)),
         report_output_dir=Path(report.get("output_dir", "reports")),
+        sleeper_min_pct_above_avg=float(sleepers.get("min_pct_above_avg", 0.25)),
+        sleeper_min_season_avg=float(sleepers.get("min_season_avg", 3.0)),
     )

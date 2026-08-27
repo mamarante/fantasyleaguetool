@@ -85,9 +85,16 @@ def _solve(players: list[Player], slots: list[str]) -> tuple[float, dict[int, in
         if key in memo:
             return memo[key]
 
-        # Option: leave this slot empty.
-        best_val, best_assign = rec(slot_i + 1, used_mask)
-
+        # Try every eligible player for this slot first (ties broken by
+        # whichever is found first, i.e. lowest player index — arbitrary
+        # but stable), then only fall back to leaving the slot empty if
+        # that's *strictly* better. Otherwise, when leaving a dedicated
+        # slot empty ties with filling it (because some later flex slot
+        # could absorb the same player for the same total), the tie would
+        # go to "empty" just because it's evaluated first — confusing to
+        # display even though the grand total is unaffected.
+        best_val: float = float("-inf")
+        best_assign: dict[int, int] = {}
         avail = slot_masks[slot_i] & ~used_mask
         m = avail
         while m:
@@ -99,6 +106,11 @@ def _solve(players: list[Player], slots: list[str]) -> tuple[float, dict[int, in
             if total > best_val:
                 best_val = total
                 best_assign = {slot_i: i, **assign}
+
+        skip_val, skip_assign = rec(slot_i + 1, used_mask)
+        if skip_val > best_val:
+            best_val = skip_val
+            best_assign = skip_assign
 
         memo[key] = (best_val, best_assign)
         return memo[key]

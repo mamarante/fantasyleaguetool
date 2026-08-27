@@ -5,7 +5,6 @@ either league. See the project README for the full philosophy.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -19,7 +18,9 @@ from nailer.reports.byes import build_bye_radar
 from nailer.reports.matchup import build_matchup_preview
 from nailer.reports.report import build_full_report, write_report
 from nailer.reports.roster import build_roster_view
+from nailer.reports.sleepers import build_sleeper_report
 from nailer.reports.startsit import build_startsit_report
+from nailer.reports.strength import build_strength_report
 from nailer.reports.waivers import build_waiver_report
 
 app = typer.Typer(add_completion=False, help=__doc__)
@@ -28,6 +29,7 @@ console = Console()
 LeagueOpt = typer.Option("both", "--league", help="espn, yahoo, or both")
 WeekOpt = typer.Option(None, "--week", help="Override the week (default: current)")
 ConfigOpt = typer.Option("config.yaml", "--config", help="Path to config.yaml")
+OutOpt = typer.Option(None, "--out", help="Output file (default: reports/nailer-report-<date>.md)")
 
 
 def _setup(config_path: str, league: str) -> tuple[NailerConfig, dict]:
@@ -35,7 +37,7 @@ def _setup(config_path: str, league: str) -> tuple[NailerConfig, dict]:
         config = load_config(Path(config_path))
     except ConfigError as e:
         console.print(f"[red]Config error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     cache = Cache(config.cache_dir, config.cache_ttl_hours, config.cache_enabled)
     adapters = build_adapters(config, cache)
@@ -53,9 +55,12 @@ def _setup(config_path: str, league: str) -> tuple[NailerConfig, dict]:
     return config, adapters
 
 
+def _status_tag(p: Player) -> str:
+    return p.injury_status.value if p.injury_status.value != "ACTIVE" else ""
+
+
 def _player_row(p: Player, slot: str | None = None) -> list[str]:
-    tag = p.injury_status.value if p.injury_status.value not in ("ACTIVE",) else ""
-    return [slot or (p.slot or ""), p.name, p.position, p.pro_team, f"{p.projected_points:.1f}", tag]
+    return [slot or (p.slot or ""), p.name, p.position, p.pro_team, f"{p.projected_points:.1f}", _status_tag(p)]
 
 
 def _players_table(title: str, players: list[Player], slot_fn=lambda p: p.slot or "") -> Table:
@@ -63,12 +68,12 @@ def _players_table(title: str, players: list[Player], slot_fn=lambda p: p.slot o
     for col in ("Slot", "Player", "Pos", "Team", "Proj", "Status"):
         table.add_column(col)
     for p in players:
-        table.add_row(slot_fn(p), p.name, p.position, p.pro_team, f"{p.projected_points:.1f}", p.injury_status.value if p.injury_status.value != "ACTIVE" else "")
+        table.add_row(slot_fn(p), p.name, p.position, p.pro_team, f"{p.projected_points:.1f}", _status_tag(p))
     return table
 
 
 @app.command()
-def roster(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str = ConfigOpt):
+def roster(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt):
     """Show my roster and this week's opponent's roster, side by side."""
     cfg, adapters = _setup(config, league)
     for name, adapter in adapters.items():
@@ -86,7 +91,7 @@ def roster(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str =
 
 
 @app.command()
-def startsit(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str = ConfigOpt):
+def startsit(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt):
     """Recommend the optimal lineup and flag close flex calls."""
     cfg, adapters = _setup(config, league)
     for name, adapter in adapters.items():
@@ -117,7 +122,7 @@ def startsit(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str
 
 
 @app.command()
-def waivers(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str = ConfigOpt, top: int = typer.Option(5, help="Adds to show per position")):
+def waivers(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt, top: int = typer.Option(5, help="Adds to show per position")):
     """List free agents that beat your worst bench player at their position."""
     cfg, adapters = _setup(config, league)
     for name, adapter in adapters.items():
@@ -134,7 +139,7 @@ def waivers(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str 
             for col in ("Player", "Team", "Proj", "Status"):
                 table.add_column(col)
             for p in pw.candidates:
-                table.add_row(p.name, p.pro_team, f"{p.projected_points:.1f}", p.injury_status.value if p.injury_status.value != "ACTIVE" else "")
+                table.add_row(p.name, p.pro_team, f"{p.projected_points:.1f}", _status_tag(p))
             console.print(table)
 
         if report.watchlist_hits:
@@ -165,7 +170,7 @@ def byes(league: str = LeagueOpt, config: str = ConfigOpt):
 
 
 @app.command()
-def matchup(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str = ConfigOpt):
+def matchup(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt):
     """My projected total vs. this week's opponent, by position."""
     cfg, adapters = _setup(config, league)
     for name, adapter in adapters.items():
@@ -194,7 +199,63 @@ def matchup(league: str = LeagueOpt, week: Optional[int] = WeekOpt, config: str 
 
 
 @app.command()
-def report(league: str = LeagueOpt, config: str = ConfigOpt, out: Optional[str] = typer.Option(None, "--out", help="Output file (default: reports/nailer-report-<date>.md)")):
+def strength(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt):
+    """My optimal-lineup projected total vs. the league average this week, and my rank."""
+    cfg, adapters = _setup(config, league)
+    for name, adapter in adapters.items():
+        try:
+            report = build_strength_report(adapter, cfg, week)
+        except LeagueAdapterError as e:
+            console.print(f"[red]{name.upper()}: {e}[/red]")
+            continue
+
+        diff_style = "green" if report.diff_from_average >= 0 else "red"
+        console.print(
+            f"[bold]{name.upper()} Week {report.week}[/bold]: {report.my_team.projected_total:.1f} proj "
+            f"vs. league average {report.league_average:.1f} "
+            f"([{diff_style}]{report.diff_from_average:+.1f}[/{diff_style}]) — rank {report.rank}/{len(report.all_teams)}"
+        )
+        table = Table(title=f"{name.upper()} — League Strength (Week {report.week})")
+        for col in ("Rank", "Team", "Projected"):
+            table.add_column(col)
+        for i, t in enumerate(report.all_teams, start=1):
+            label = f"[bold]{t.team_name} (you)[/bold]" if t.team_id == report.my_team.team_id else t.team_name
+            table.add_row(str(i), label, f"{t.projected_total:.1f}")
+        console.print(table)
+
+
+@app.command()
+def sleepers(league: str = LeagueOpt, week: int | None = WeekOpt, config: str = ConfigOpt):
+    """Bench and free-agent players whose projection this week is notably above their season average."""
+    cfg, adapters = _setup(config, league)
+    for name, adapter in adapters.items():
+        try:
+            report = build_sleeper_report(adapter, cfg, week)
+        except LeagueAdapterError as e:
+            console.print(f"[red]{name.upper()}: {e}[/red]")
+            continue
+
+        def _trending_table(title: str, trending: list):
+            table = Table(title=title)
+            for col in ("Player", "Pos", "Team", "This Week", "Season Avg", "% Above Avg"):
+                table.add_column(col)
+            for t in trending:
+                table.add_row(
+                    t.player.name, t.player.position, t.player.pro_team,
+                    f"{t.player.projected_points:.1f}", f"{t.season_avg:.1f}", f"+{t.pct_above_avg:.0%}",
+                )
+            return table
+
+        if report.bench_trending:
+            console.print(_trending_table(f"{name.upper()} — Bench players trending up", report.bench_trending))
+        if report.waiver_trending:
+            console.print(_trending_table(f"{name.upper()} — Free agents trending up", report.waiver_trending))
+        if not report.bench_trending and not report.waiver_trending:
+            console.print(f"[green]{name.upper()}: nothing trending notably above its season average right now.[/green]")
+
+
+@app.command()
+def report(league: str = LeagueOpt, config: str = ConfigOpt, out: str | None = OutOpt):
     """Run everything and write one paste-friendly markdown report covering both leagues."""
     cfg, adapters = _setup(config, league)
     markdown = build_full_report(cfg, adapters)
